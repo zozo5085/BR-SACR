@@ -32,8 +32,6 @@ def set_seed(seed=42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-
-    # 訓練穩定優先
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
@@ -47,65 +45,10 @@ def custom_collate_fn(batch):
 
 def get_parser():
     parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        '--cfg',
-        dest='cfg_file',
-        default='config/voc_train_ori_cfg.yaml',
-        type=str
-    )
-
-    parser.add_argument(
-        '--exp_name',
-        type=str,
-        default='sacr_voc_train'
-    )
-
-    parser.add_argument(
-        '--workers',
-        type=int,
-        default=-1
-    )
-
-    # debug 用，不給就是正常完整訓練
-    parser.add_argument(
-        '--debug_train_batches',
-        type=int,
-        default=-1
-    )
-
-    parser.add_argument(
-        '--debug_val_batches',
-        type=int,
-        default=-1
-    )
-
-    parser.add_argument(
-        '--debug_epochs',
-        type=int,
-        default=-1
-    )
-
-    parser.add_argument(
-        '--show_pseudo_samples',
-        type=int,
-        default=8
-    )
-
-    parser.add_argument(
-        '--save_debug_masks',
-        action='store_true'
-    )
-
-    # 可選：如果你想從 baseline checkpoint 接著訓練，就填路徑
-    # 不填就是從目前 model 初始化開始
-    parser.add_argument(
-        '--init_path',
-        type=str,
-        default='',
-        help='optional checkpoint path for initialization'
-    )
-
+    parser.add_argument('--cfg', dest='cfg_file', default='config/voc_train_ori_cfg.yaml', type=str)
+    parser.add_argument('--exp_name', type=str, default='sacr_voc_train')
+    parser.add_argument('--workers', type=int, default=-1)
+    parser.add_argument('--init_path', type=str, default='')
     return parser.parse_args()
 
 
@@ -114,7 +57,7 @@ class TrainDataset(Dataset):
         super().__init__()
         self.cfg = cfg
         (
-            self.train_filenames,
+            _,
             _,
             self.train_images,
             self.train_labels,
@@ -163,26 +106,6 @@ def get_effective_workers(cfg, args):
     return int(getattr(cfg, 'NUM_WORKERS', 0))
 
 
-def summarize_pseudo_classes(pseudo_classes, num_classes):
-    hist = torch.zeros(num_classes, dtype=torch.long)
-    empty_cnt = 0
-    max_len = 0
-
-    for row in pseudo_classes:
-        if row is None or len(row) == 0:
-            empty_cnt += 1
-            continue
-
-        max_len = max(max_len, len(row))
-
-        for c in row:
-            c = int(c)
-            if 0 <= c < num_classes:
-                hist[c] += 1
-
-    return hist, empty_cnt, max_len
-
-
 def clean_state_dict(weight):
     if isinstance(weight, dict) and 'model_state_dict' in weight:
         weight = weight['model_state_dict']
@@ -197,10 +120,6 @@ def clean_state_dict(weight):
 
 
 def is_allowed_missing_key(key):
-    """
-    用舊 checkpoint 載入目前 model 時，可能會少掉 optional BR-SACR module。
-    這些 module 預設 disabled/frozen，所以允許 missing。
-    """
     allowed_prefixes = [
         'context_refine.',
         'edge_gate.',
@@ -215,13 +134,10 @@ def is_allowed_missing_key(key):
 
 def load_init_checkpoint(model, init_path):
     if init_path is None or init_path == '':
-        print("[Init] No init checkpoint is used.")
         return model
 
     if not os.path.isfile(init_path):
-        raise FileNotFoundError(f"[Init] Cannot find init checkpoint: {init_path}")
-
-    print(f"[Init] Loading checkpoint: {init_path}")
+        raise FileNotFoundError(f"Cannot find init checkpoint: {init_path}")
 
     ckpt = torch.load(init_path, map_location='cpu', weights_only=False)
     state_dict = clean_state_dict(ckpt)
@@ -231,27 +147,21 @@ def load_init_checkpoint(model, init_path):
     bad_missing = [k for k in missing if not is_allowed_missing_key(k)]
     bad_unexpected = [k for k in unexpected if not k.startswith('clip.')]
 
-    print("[Init] missing keys:", missing)
-    print("[Init] unexpected keys:", unexpected)
-
     if len(bad_missing) > 0:
-        raise RuntimeError(f"[Init] Bad missing keys: {bad_missing}")
+        raise RuntimeError(f"Bad missing keys: {bad_missing}")
 
     if len(bad_unexpected) > 0:
-        raise RuntimeError(f"[Init] Bad unexpected keys: {bad_unexpected}")
+        raise RuntimeError(f"Bad unexpected keys: {bad_unexpected}")
 
+    print(f"[INFO] Loaded init checkpoint: {init_path}")
     return model
 
 
-def set_trainable_author_aligned(model):
-    """
-    對齊你原本正常版：
-    只訓練 7 組參數。
-    """
-    for name, param in model.named_parameters():
+def set_trainable_sacr(model, cfg):
+    for _, param in model.named_parameters():
         param.requires_grad = False
 
-    trainable_names = {
+    base_trainable_names = {
         "text_encoder.prompt_token",
         "pe_proj.weight",
         "pe_proj.bias",
@@ -261,19 +171,25 @@ def set_trainable_author_aligned(model):
         "decoder_norm2.bias",
     }
 
+    train_context_refine = bool(getattr(cfg.MODEL, "TRAIN_CONTEXT_REFINE", False))
+    train_edge_gate = bool(getattr(cfg.MODEL, "TRAIN_EDGE_GATE", False))
+
     for name, param in model.named_parameters():
-        if name in trainable_names:
+        if name in base_trainable_names:
+            param.requires_grad = True
+
+        if train_context_refine and name.startswith("context_refine."):
+            param.requires_grad = True
+
+        if train_edge_gate and name.startswith("edge_gate."):
             param.requires_grad = True
 
     return model
 
 
-def check_trainable_params(model):
+def check_trainable_params(model, cfg):
     trainable = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
-
-    print(f"[Debug] Trainable params: {len(trainable)}")
-    for n, p in trainable:
-        print(f"  {n}: {tuple(p.shape)}")
+    total_trainable = sum(p.numel() for _, p in trainable)
 
     expected_trainable = {
         "text_encoder.prompt_token",
@@ -285,7 +201,20 @@ def check_trainable_params(model):
         "decoder_norm2.bias",
     }
 
-    actual_trainable = {n for n, p in trainable}
+    train_context_refine = bool(getattr(cfg.MODEL, "TRAIN_CONTEXT_REFINE", False))
+    train_edge_gate = bool(getattr(cfg.MODEL, "TRAIN_EDGE_GATE", False))
+
+    if train_context_refine:
+        for n, _ in model.named_parameters():
+            if n.startswith("context_refine."):
+                expected_trainable.add(n)
+
+    if train_edge_gate:
+        for n, _ in model.named_parameters():
+            if n.startswith("edge_gate."):
+                expected_trainable.add(n)
+
+    actual_trainable = {n for n, _ in trainable}
 
     if actual_trainable != expected_trainable:
         raise RuntimeError(
@@ -294,13 +223,8 @@ def check_trainable_params(model):
             f"Actual: {sorted(actual_trainable)}"
         )
 
-
-def is_debug_mode(args):
-    return (
-        args.debug_train_batches > 0
-        or args.debug_val_batches > 0
-        or args.debug_epochs > 0
-    )
+    print(f"[INFO] Trainable parameter groups: {len(trainable)}")
+    print(f"[INFO] Trainable parameters: {total_trainable:,}")
 
 
 def train_single_gpu():
@@ -308,13 +232,8 @@ def train_single_gpu():
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    clip_model, _ = clip.load("ViT-B/16")
-    clip_model = clip_model.to(device)
-
     args = get_parser()
     cfg = cfg_from_file(args.cfg_file)
-
-    debug_mode = is_debug_mode(args)
 
     exp_save_dir = os.path.join(cfg.SAVE_DIR, args.exp_name)
     os.makedirs(exp_save_dir, exist_ok=True)
@@ -326,54 +245,42 @@ def train_single_gpu():
     workers = get_effective_workers(cfg, args)
 
     (
-        train_filenames,
+        _,
         val_filenames,
         train_images,
-        train_labels,
+        _,
         val_images,
         val_labels,
         _,
         pseudo_classes
     ) = read_file_list(cfg)
 
+    if len(pseudo_classes) != len(train_images):
+        raise RuntimeError(
+            f"Pseudo-label length mismatch: {len(pseudo_classes)} vs {len(train_images)}"
+        )
+
     cls_name_token, classes = prepare_dataset_cls_tokens(cfg)
     text_weight = torch.load(cfg.DATASET.TEXT_WEIGHT, map_location="cpu").to(device)
 
-    print("[INFO] SACR training")
-    print(f"[INFO] exp_name={args.exp_name}")
-    print(f"[INFO] save_dir={exp_save_dir}")
-    print(f"[INFO] debug_mode={debug_mode}")
+    print("[INFO]  training")
+    print(f"[INFO] config: {args.cfg_file}")
+    print(f"[INFO] experiment: {args.exp_name}")
+    print(f"[INFO] save_dir: {exp_save_dir}")
+    print(f"[INFO] dataset: {cfg.DATASET.NAME}")
+    print(f"[INFO] train images: {len(train_images)}")
+    print(f"[INFO] val images: {len(val_images)}")
+    print(f"[INFO] classes: {len(classes)}")
 
-    print("[INFO] SACR training", file=log)
-    print(f"[INFO] exp_name={args.exp_name}", file=log)
-    print(f"[INFO] save_dir={exp_save_dir}", file=log)
-    print(f"[INFO] debug_mode={debug_mode}", file=log)
+    print("[INFO]  training", file=log)
+    print(f"[INFO] config: {args.cfg_file}", file=log)
+    print(f"[INFO] experiment: {args.exp_name}", file=log)
+    print(f"[INFO] save_dir: {exp_save_dir}", file=log)
+    print(f"[INFO] dataset: {cfg.DATASET.NAME}", file=log)
+    print(f"[INFO] train images: {len(train_images)}", file=log)
+    print(f"[INFO] val images: {len(val_images)}", file=log)
+    print(f"[INFO] classes: {len(classes)}", file=log)
     log.flush()
-
-    print("=" * 100)
-    print("[Dataset]")
-    print(f"train images: {len(train_images)}")
-    print(f"val images: {len(val_images)}")
-    print(f"num classes: {len(classes)}")
-    print("=" * 100)
-
-    pseudo_hist, empty_pseudo_cnt, max_pseudo_len = summarize_pseudo_classes(
-        pseudo_classes,
-        cfg.DATASET.NUM_CLASSES
-    )
-
-    print("empty pseudo count =", empty_pseudo_cnt)
-    print("max pseudo length =", max_pseudo_len)
-    print("pseudo class histogram =", pseudo_hist.tolist())
-
-    n_show = min(args.show_pseudo_samples, len(train_images))
-    for i in range(n_show):
-        print(f"[pseudo sample {i}] {os.path.basename(train_images[i])} -> {pseudo_classes[i]}")
-
-    print("=" * 100)
-
-    if debug_mode:
-        print("[WARN] Debug mode is enabled. mIoU is only for sanity check, not final performance.")
 
     train_data = TrainDataset(cfg)
     train_loader = DataLoader(
@@ -386,6 +293,9 @@ def train_single_gpu():
         collate_fn=custom_collate_fn
     )
 
+    clip_model, _ = clip.load("ViT-B/16")
+    clip_model = clip_model.to(device)
+
     model = SACR(
         cfg=cfg,
         clip_model=clip_model,
@@ -396,8 +306,8 @@ def train_single_gpu():
     model = load_init_checkpoint(model, args.init_path)
     model = model.to(device)
 
-    model = set_trainable_author_aligned(model)
-    check_trainable_params(model)
+    model = set_trainable_sacr(model, cfg)
+    check_trainable_params(model, cfg)
 
     optimizer = optim.SGD(
         filter(lambda p: p.requires_grad, model.parameters()),
@@ -414,20 +324,12 @@ def train_single_gpu():
 
     try:
         for epoch in range(max_epoch):
-            pt = model.text_encoder.prompt_token
-            print(
-                f"[Debug] epoch={epoch} "
-                f"prompt_token norm={pt.norm().item():.6f} "
-                f"grad={pt.grad is not None}"
-            )
-
             model.train()
 
             running_loss = 0.0
             valid_train_steps = 0
             skipped_empty_gt = 0
             skipped_bad_loss = 0
-            train_pred_hist = torch.zeros(c_num, dtype=torch.long)
 
             lr = adjust_learning_rate_poly(
                 optimizer,
@@ -439,10 +341,7 @@ def train_single_gpu():
 
             loop = tqdm(train_loader, desc=f"Epoch {epoch} Training")
 
-            for idx, (img, label, img_metas, filenames, pseudo_class) in enumerate(loop):
-                if args.debug_train_batches > 0 and idx >= args.debug_train_batches:
-                    break
-
+            for _, (img, label, img_metas, filenames, pseudo_class) in enumerate(loop):
                 gt_cls = [[int(t) for t in p_cls] for p_cls in pseudo_class]
 
                 if sum(len(t) for t in gt_cls) == 0:
@@ -462,7 +361,7 @@ def train_single_gpu():
 
                 if not torch.isfinite(loss):
                     skipped_bad_loss += 1
-                    print(f"[WARN] Non-finite loss at epoch={epoch}, iter={idx}. Skip batch.")
+                    print(f"[WARN] Non-finite loss at epoch={epoch}. Skip batch.")
                     continue
 
                 optimizer.zero_grad()
@@ -471,13 +370,6 @@ def train_single_gpu():
 
                 running_loss += loss.item()
                 valid_train_steps += 1
-
-                with torch.no_grad():
-                    batch_pred = torch.argmax(output.detach(), dim=1)
-                    train_pred_hist += torch.bincount(
-                        batch_pred.view(-1).cpu(),
-                        minlength=c_num
-                    )
 
                 avg_loss = running_loss / max(valid_train_steps, 1)
 
@@ -489,38 +381,11 @@ def train_single_gpu():
 
             epoch_avg_loss = running_loss / max(valid_train_steps, 1)
 
-            print(
-                f'epoch {epoch} finish, lr:{lr:.6f}, avg_loss:{epoch_avg_loss:.6f}',
-                file=log
-            )
-            print(
-                f'[Train Hist] epoch={epoch} pred_hist={train_pred_hist.tolist()}',
-                file=log
-            )
-            print(
-                f'[Train Stat] epoch={epoch} valid_steps={valid_train_steps}, '
-                f'skipped_empty_gt={skipped_empty_gt}, skipped_bad_loss={skipped_bad_loss}',
-                file=log
-            )
-            log.flush()
-
-            # =========================
-            # Validation
-            # No PD filter here.
-            # softmax -> argmax directly.
-            # =========================
-            torch.backends.cudnn.benchmark = True
             model.eval()
-
             current_results_iou = []
-            val_hist = torch.zeros(c_num, dtype=torch.long)
 
             with torch.no_grad():
-                val_total = len(val_images)
-                if args.debug_val_batches > 0:
-                    val_total = min(len(val_images), args.debug_val_batches)
-
-                for v_idx in tqdm(range(val_total), desc="Validating"):
+                for v_idx in tqdm(range(len(val_images)), desc="Validating"):
                     with open(val_images[v_idx], 'rb') as f:
                         value_buf = f.read()
 
@@ -530,11 +395,9 @@ def train_single_gpu():
                     ori_shape = tuple((label.size[1], label.size[0]))
                     shape = img.shape[2:]
 
-                    gt_cls = []
-
                     output = model(
                         img,
-                        gt_cls,
+                        [],
                         text_weight,
                         cls_name_token,
                         training=False
@@ -559,23 +422,10 @@ def train_single_gpu():
                     output = F.softmax(output, dim=1)
                     output = torch.argmax(output, dim=1).squeeze(dim=0)
 
-                    val_hist += torch.bincount(
-                        output.view(-1).cpu(),
-                        minlength=c_num
-                    )
-
                     save_path = os.path.join(exp_save_dir, val_filenames[v_idx] + '.pt')
                     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-
                     torch.save(output.cpu(), save_path)
                     current_results_iou.append(save_path)
-
-                    if args.save_debug_masks and v_idx < 3:
-                        debug_mask_path = os.path.join(
-                            exp_save_dir,
-                            f"debug_epoch{epoch}_val{v_idx}.pt"
-                        )
-                        torch.save(output.cpu(), debug_mask_path)
 
                 iou = mean_iou(
                     current_results_iou,
@@ -586,54 +436,50 @@ def train_single_gpu():
                     reduce_zero_label=cfg.DATASET.REDUCE_ZERO_LABEL
                 )
 
-                # 只取前 c_num 類，避免 c_num+1 多出來的空類別影響
                 avg = iou['IoU'][:c_num].sum() / c_num
-
-                print(f"Epoch {epoch} strict mIoU: {avg:.4f}")
-                print(f"[Val Hist] epoch={epoch} pred_hist={val_hist.tolist()}")
-
-                print(f'epoch={epoch} strict_miou={avg:.4f}', file=log)
-                print(f'[Val Hist] epoch={epoch} pred_hist={val_hist.tolist()}', file=log)
-                log.flush()
-
                 is_best = avg > best_iou
 
                 if is_best:
                     best_iou = avg
-                    print(f"*** New Best Strict Saved: {best_iou:.4f} ***")
+                    torch.save(
+                        model.state_dict(),
+                        os.path.join(exp_save_dir, 'best_weight.pth')
+                    )
 
-                    if not debug_mode:
-                        torch.save(
-                            model.state_dict(),
-                            os.path.join(exp_save_dir, 'best_weight.pth')
-                        )
+                checkpoint_state = {
+                    'epoch': epoch + 1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'best_iou': best_iou,
+                }
 
-                if not debug_mode:
-                    checkpoint_state = {
-                        'epoch': epoch + 1,
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'best_iou': best_iou,
-                    }
+                save_checkpoint(
+                    checkpoint_state,
+                    exp_save_dir,
+                    filename='latest_checkpoint.pth'
+                )
 
+                if is_best:
                     save_checkpoint(
                         checkpoint_state,
                         exp_save_dir,
-                        filename=f'checkpoint_epoch_{epoch}.pth'
+                        filename='model_best.pth'
                     )
 
-                    if is_best:
-                        save_checkpoint(
-                            checkpoint_state,
-                            exp_save_dir,
-                            filename='model_best.pth'
-                        )
+            msg = (
+                f"Epoch {epoch}: "
+                f"lr={lr:.6f}, "
+                f"loss={epoch_avg_loss:.6f}, "
+                f"mIoU={avg:.4f}, "
+                f"best={best_iou:.4f}, "
+                f"valid_steps={valid_train_steps}, "
+                f"skipped_empty={skipped_empty_gt}, "
+                f"skipped_bad={skipped_bad_loss}"
+            )
 
-            torch.backends.cudnn.benchmark = False
-
-            if args.debug_epochs > 0 and (epoch + 1) >= args.debug_epochs:
-                print(f"[Debug] stop after {args.debug_epochs} epoch(s).")
-                break
+            print(msg)
+            print(msg, file=log)
+            log.flush()
 
             if epoch == stop_epoch:
                 break

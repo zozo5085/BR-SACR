@@ -1,0 +1,38 @@
+DATASET:
+  NAME: 'voc'
+  NUM_CLASSES: 20
+  DATAROOT: 'D:/ReCLIPv3/datasets/PASCAL VOC/VOC2012/'
+  SCALE: [2048, 336]
+  RATIO_RANGE: [0.5, 2.0]
+  CROP_SIZE: [512, 512]
+  CAT_MAX_RATIO: 0.75
+  IMG_NORM_CFG:
+    MEAN: [122.771, 116.746, 104.094]
+    STD: [68.501, 66.632, 70.323]
+    RGB: True
+  TEXT_WEIGHT: 'D:/ReCLIPPP2026/text/voc_ViT16_clip_text.pth'
+  K: 2
+  THRESHOLD: 23
+  REDUCE_ZERO_LABEL: TRUE
+  IGNORE_INDEX: 255
+  PALETTE: [[128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],
+            [128, 0, 128], [0, 128, 128], [128, 128, 128], [64, 0, 0],
+            [192, 0, 0], [64, 128, 0], [192, 128, 0], [64, 0, 128],
+            [192, 0, 128], [64, 128, 128], [192, 128, 128], [0, 64, 0],
+            [128, 64, 0], [0, 192, 0], [128, 192, 0], [0, 64, 128]]
+
+MODEL:
+  FEATURE_EXTRACTOR: 'vit'
+  TEXT_CHANNEL: 512
+  VISUAL_CHANNEL: 768
+  TRAINING: False
+
+TEST:
+  BATCH_SIZE: 1
+  PD: 1.0
+  ReCLIP_PD: 0.5
+
+EVAL_METRIC: "miou"
+SAVE_DIR: "D:/ReCLIPPP2026/experiments/voc_rectification/"
+LOAD_PATH: "D:/ReCLIPPP2026/experiments/voc_rectification/reclippp_voc_train/model_best.pth"
+NUM_WORKERS: 4

@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+
+# Environment
+.env
+.venv/
+venv/
+*.egg-info/
+
+# Datasets
+datasets/
+data/
+VOC2012/
+PASCAL VOC/
+Cityscapes/
+ADEChallengeData2016/
+
+# Checkpoints / weights
+*.pth
+*.pt
+*.ckpt
+*.onnx
+
+# Experiments / outputs
+experiments/
+results/
+runs/
+logs/
+outputs/
+wandb/
+
+# Paper / LaTeX files
+*.aux
+*.log
+*.synctex*
+*.pdf
+*.tex
+*.bib
+*.cls
+*.bbl
+*.blg
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+
+# Large archives
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

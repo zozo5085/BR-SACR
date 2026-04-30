@@ -83,6 +83,7 @@ python tools/train.py --cfg config/voc_train_ori_cfg.yaml
 Evaluate a trained model on the validation set:
 ```bash
 python tools/test.py --cfg config/voc_test_ori_cfg.yaml
+# Options for dataset: voc, context, ade, cityscapes, coco
 ```
 
 if needed, set the checkpoint path in the corresponding config file:

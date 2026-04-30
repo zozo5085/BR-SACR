@@ -6,7 +6,7 @@ This repository provides the PyTorch implementation of our 2026 ICCE-TW paper:
 
 We use **Python 3.9+** and **PyTorch 2.0+**.
 
-## Installation
+# Installation
 
 Clone this repository and install the required packages:
 
@@ -41,3 +41,5 @@ if needed, set the checkpoint path in the corresponding config file:
 ```YAML
 LOAD_PATH: 'path/to/bestweight.pth
 ```
+
+#

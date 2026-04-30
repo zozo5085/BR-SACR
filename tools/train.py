@@ -58,7 +58,7 @@ def get_parser():
     parser.add_argument(
         '--exp_name',
         type=str,
-        default='reclippp_voc_train'
+        default='sacr_voc_train'
     )
 
     parser.add_argument(
@@ -339,32 +339,23 @@ def train_single_gpu():
     cls_name_token, classes = prepare_dataset_cls_tokens(cfg)
     text_weight = torch.load(cfg.DATASET.TEXT_WEIGHT, map_location="cpu").to(device)
 
-    print("[INFO] Author-aligned RECLIPPP training")
+    print("[INFO] SACR training")
     print(f"[INFO] exp_name={args.exp_name}")
     print(f"[INFO] save_dir={exp_save_dir}")
-    print(f"[INFO] workers={workers}")
     print(f"[INFO] debug_mode={debug_mode}")
-    print(f"[INFO] init_path={args.init_path}")
 
-    print("[INFO] Author-aligned RECLIPPP training", file=log)
+    print("[INFO] SACR training", file=log)
     print(f"[INFO] exp_name={args.exp_name}", file=log)
     print(f"[INFO] save_dir={exp_save_dir}", file=log)
-    print(f"[INFO] workers={workers}", file=log)
     print(f"[INFO] debug_mode={debug_mode}", file=log)
-    print(f"[INFO] init_path={args.init_path}", file=log)
     log.flush()
 
-    print("classes =", classes)
-    print("num classes =", len(classes))
-    print("cls_name_token shape =", cls_name_token.shape)
-    print("text_weight shape =", text_weight.shape)
     print("=" * 100)
-    print("[Sanity Check]")
-    print("len(train_images) =", len(train_images))
-    print("len(train_labels) =", len(train_labels))
-    print("len(pseudo_classes) =", len(pseudo_classes))
-    print("len(val_images) =", len(val_images))
-    print("len(val_labels) =", len(val_labels))
+    print("[Dataset]")
+    print(f"train images: {len(train_images)}")
+    print(f"val images: {len(val_images)}")
+    print(f"num classes: {len(classes)}")
+    print("=" * 100)
 
     pseudo_hist, empty_pseudo_cnt, max_pseudo_len = summarize_pseudo_classes(
         pseudo_classes,
@@ -395,7 +386,7 @@ def train_single_gpu():
         collate_fn=custom_collate_fn
     )
 
-    model = RECLIPPP(
+    model = SACR(
         cfg=cfg,
         clip_model=clip_model,
         rank=device,

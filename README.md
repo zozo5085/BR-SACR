@@ -31,4 +31,13 @@ voc, context, ade, city, stuff
 ```
 
 
+# Evaluation
+Evaluate a trained model on the validation set:
+```bash
+python tools/test.py --cfg config/voc_test_ori_cfg.yaml
+```
 
+if needed, set the checkpoint path in the corresponding config file:
+```YAML
+LOAD_PATH: 'path/to/model_best.pth
+```

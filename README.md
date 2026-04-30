@@ -46,4 +46,40 @@ if needed, set the checkpoint path in the corresponding config file:
 LOAD_PATH: 'path/to/bestweight.pth
 ```
 
-#
+#text
+├── datasets
+│   ├── PASCAL VOC
+│   │   ├── VOC2012
+│   │   │   ├── JPEGImages
+│   │   │   ├── SegmentationClass
+│   │   │   ├── ImageSets
+│   │   │   │   ├── Segmentation
+│   │   ├── VOC2010
+│   │   │   ├── JPEGImages
+│   │   │   ├── SegmentationClassContext
+│   │   │   ├── ImageSets
+│   │   │   │   ├── SegmentationContext
+│   │   │   │   │   ├── train.txt
+│   │   │   │   │   ├── val.txt
+│   │   │   ├── trainval_merged.json
+│   ├── ADEChallengeData2016
+│   │   ├── annotations
+│   │   │   ├── training
+│   │   │   ├── validation
+│   │   ├── images
+│   │   │   ├── training
+│   │   │   ├── validation
+│   ├── Cityscapes
+│   │   ├── gtFine
+│   │   │   ├── train
+│   │   │   ├── val
+│   │   ├── leftImg8bit
+│   │   │   ├── train
+│   │   │   ├── val
+│   ├── coco_stuff164k
+│   │   ├── images
+│   │   │   ├── train2017
+│   │   │   ├── val2017
+│   │   ├── annotations
+│   │   │   ├── train2017
+│   │   │   ├── val2017

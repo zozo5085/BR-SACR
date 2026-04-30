@@ -6,7 +6,7 @@ This repository provides the PyTorch implementation of our 2026 ICCE-TW paper:
 
 We use **Python 3.9+** and **PyTorch 2.0+**.
 
-## Installation
+# Installation
 
 Clone this repository and install the required packages:
 
@@ -29,6 +29,12 @@ Available class sets include:
 ```bash
 voc, context, ade, city, stuff
 ```
+```YAML
+DATASET:
+  DATAROOT: 'your/path/to/VOC2012/'
+  TEXT_WEIGHT: 'text/voc_ViT16_clip_text.pth'
+```
+
 
 
 # Evaluation

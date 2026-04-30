@@ -73,8 +73,11 @@ DATASET:
   TEXT_WEIGHT: 'text/voc_ViT16_clip_text.pth'
 ```
 
-
-
+# Training
+Training on Pascal VOC:
+```Bash
+python tools/train.py --cfg config/voc_train_ori_cfg.yaml 
+```
 # Evaluation
 Evaluate a trained model on the validation set:
 ```bash

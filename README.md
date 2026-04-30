@@ -24,9 +24,7 @@ For example, in config/voc_train_ori_cfg.yaml, set:
 
 ```bash
 text/voc_ViT16_clip_text.pth
-``
 Available class sets include:
-```bash
 voc, context, ade, city, stuff
 ```
 ```YAML

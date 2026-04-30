@@ -19,7 +19,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from config.configs import cfg_from_file
-from model.model import RECLIPPP
+from model.model import SACR
 from utils.test_mIoU import mean_iou
 from utils.preprocess import val_preprocess, preprocess, read_file_list, prepare_dataset_cls_tokens
 

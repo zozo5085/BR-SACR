@@ -39,5 +39,5 @@ python tools/test.py --cfg config/voc_test_ori_cfg.yaml
 
 if needed, set the checkpoint path in the corresponding config file:
 ```YAML
-LOAD_PATH: 'path/to/model_best.pth
+LOAD_PATH: 'path/to/bestweight.pth
 ```

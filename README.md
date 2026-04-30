@@ -77,6 +77,7 @@ DATASET:
 Training on Pascal VOC:
 ```Bash
 python tools/train.py --cfg config/voc_train_ori_cfg.yaml 
+Checkpoints and prediction results will be saved to the directory specified by SAVE_DIR in the config file.
 ```
 # Evaluation
 Evaluate a trained model on the validation set:

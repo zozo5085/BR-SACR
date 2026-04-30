@@ -46,7 +46,7 @@ if needed, set the checkpoint path in the corresponding config file:
 LOAD_PATH: 'path/to/bestweight.pth
 ```
 
-#text
+```text
 ├── datasets
 │   ├── PASCAL VOC
 │   │   ├── VOC2012
@@ -83,3 +83,4 @@ LOAD_PATH: 'path/to/bestweight.pth
 │   │   ├── annotations
 │   │   │   ├── train2017
 │   │   │   ├── val2017
+```

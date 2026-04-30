@@ -77,8 +77,8 @@ DATASET:
 Training on Pascal VOC:
 ```Bash
 python tools/train.py --cfg config/voc_train_ori_cfg.yaml 
-```
 # Options for dataset: voc, context, ade, cityscapes, coco
+```
 # Evaluation
 Evaluate a trained model on the validation set:
 ```bash

@@ -434,7 +434,7 @@ class EdgeGuidedResidualGating(nn.Module):
 
         return x * (1.0 + self.alpha * edge)
 
-class RECLIPPP(nn.Module):
+class SACR(nn.Module):
     def __init__(self, cfg, clip_model, rank, zeroshot_weights=None):
         super().__init__()
 

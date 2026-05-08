@@ -34,7 +34,6 @@ MODEL:
 TEST:
   BATCH_SIZE: 1
   PD: 0.85
-  ReCLIP_PD: 0.6
 
 EVAL_METRIC: "miou"
 SAVE_DIR: "experiments/context_rectification/"

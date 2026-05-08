@@ -705,6 +705,3 @@ class SACR(nn.Module):
             clip_model.visual.proj[:, :, None, None].permute(1, 0, 2, 3).to(torch.float32),
             requires_grad=False
         )
-
-
-RECLIPPP = SACR

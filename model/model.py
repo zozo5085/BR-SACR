@@ -285,6 +285,7 @@ class TextEncoder(nn.Module):
         x = x[torch.arange(x.shape[0]), 74 + cls_name_token.argmax(dim=-1)] @ self.text_projection
         return x
 
+
 class CoordinateAttention(nn.Module):
     def __init__(self, channels, reduction=32):
         super().__init__()
@@ -381,19 +382,16 @@ class EdgeGuidedResidualGating(nn.Module):
         for i in range(b):
             img = image_cpu[i]
 
-            # [C, H, W] -> grayscale [H, W]
             if img.shape[0] == 3:
                 gray = img.mean(dim=0).numpy()
             else:
                 gray = img[0].numpy()
 
-            # Normalize to uint8 for OpenCV Canny.
             gray_min = gray.min()
             gray_max = gray.max()
             gray = (gray - gray_min) / (gray_max - gray_min + 1e-6)
             gray = (gray * 255.0).astype(np.uint8)
 
-            # Slight smoothing helps reduce noisy edges.
             gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
             edge = cv2.Canny(gray, self.canny_low, self.canny_high)
@@ -433,6 +431,7 @@ class EdgeGuidedResidualGating(nn.Module):
             )
 
         return x * (1.0 + self.alpha * edge)
+
 
 class SACR(nn.Module):
     def __init__(self, cfg, clip_model, rank, zeroshot_weights=None):
@@ -491,7 +490,7 @@ class SACR(nn.Module):
         self.use_relu_rect = bool(getattr(cfg.MODEL, "USE_RELU_RECT", False))
 
         print(
-            "[BR-SACR CFG] "
+            "[SACR CFG] "
             f"use_context_refine={self.use_context_refine}, "
             f"train_context_refine={self.train_context_refine}, "
             f"use_edge_gate={self.use_edge_gate}, "
@@ -499,6 +498,7 @@ class SACR(nn.Module):
             f"edge_alpha={float(getattr(cfg.MODEL, 'EDGE_ALPHA', 0.0))}, "
             f"use_relu_rect={self.use_relu_rect}"
         )
+
         self.context_refine = StructureAwareContextRefinement(
             channels=self.cnum,
             reduction=int(getattr(cfg.MODEL, "CA_REDUCTION", 32)),
@@ -529,20 +529,73 @@ class SACR(nn.Module):
         for p in self.edge_gate.parameters():
             p.requires_grad = False
 
-        train_context_refine = bool(getattr(cfg.MODEL, "TRAIN_CONTEXT_REFINE", False))
-        train_edge_gate = bool(getattr(cfg.MODEL, "TRAIN_EDGE_GATE", False))
-
-        if train_context_refine:
+        if self.train_context_refine:
             for p in self.context_refine.parameters():
                 p.requires_grad = True
 
-        if train_edge_gate:
+        if self.train_edge_gate:
             for p in self.edge_gate.parameters():
                 p.requires_grad = True
+    def apply_gt_cls_filter(self, output, gt_cls):
+        if gt_cls is None:
+            return output
 
-    def forward(self, image, gt_cls, zeroshot_weights, cls_name_token,
-                training=False, img_metas=None, return_feat=False, edge=None, **kwargs):
+        if isinstance(gt_cls, list) and len(gt_cls) == 0:
+            return output
 
+        if isinstance(gt_cls, list) and len(gt_cls) > 0 and isinstance(gt_cls[0], list):
+            filtered_output = output.clone()
+
+            for b in range(output.shape[0]):
+                cls_list = gt_cls[b]
+
+                if cls_list is None or len(cls_list) == 0:
+                    continue
+
+                valid_cls = []
+                for c in cls_list:
+                    c = int(c)
+                    if 0 <= c < output.shape[1]:
+                        valid_cls.append(c)
+
+                if len(valid_cls) == 0:
+                    continue
+
+                allowed = torch.zeros(output.shape[1], dtype=torch.bool, device=output.device)
+                allowed[torch.tensor(valid_cls, dtype=torch.long, device=output.device)] = True
+                filtered_output[b, ~allowed, :, :] = -100
+
+            return filtered_output
+
+        valid_cls = []
+        for c in gt_cls:
+            c = int(c)
+            if 0 <= c < output.shape[1]:
+                valid_cls.append(c)
+
+        if len(valid_cls) == 0:
+            return output
+
+        allowed = torch.zeros(output.shape[1], dtype=torch.bool, device=output.device)
+        allowed[torch.tensor(valid_cls, dtype=torch.long, device=output.device)] = True
+
+        filtered_output = output.clone()
+        filtered_output[:, ~allowed, :, :] = -100
+
+        return filtered_output
+
+    def forward(
+        self,
+        image,
+        gt_cls,
+        zeroshot_weights,
+        cls_name_token,
+        training=False,
+        img_metas=None,
+        return_feat=False,
+        edge=None,
+        **kwargs
+    ):
         cnum = zeroshot_weights.shape[0]
         device = self.device
         gt_cls_text_embeddings = zeroshot_weights.to(device)
@@ -643,6 +696,8 @@ class SACR(nn.Module):
 
             return output, loss / batch_size
 
+        output = self.apply_gt_cls_filter(output, gt_cls)
+
         return output
 
     def _initialize_weights(self, clip_model):
@@ -650,3 +705,6 @@ class SACR(nn.Module):
             clip_model.visual.proj[:, :, None, None].permute(1, 0, 2, 3).to(torch.float32),
             requires_grad=False
         )
+
+
+RECLIPPP = SACR

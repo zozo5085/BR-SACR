@@ -29,42 +29,22 @@ cfg.MODEL.TEXT_CHANNEL = 0
 cfg.MODEL.VISUAL_CHANNEL = 0
 cfg.MODEL.TRAINING = False
 
-# =========================================================
-# BR-SACR switches
-# 這些一定要先在 configs.py 註冊，
-# 不然 yaml 裡面新增會被 merge_a_to_b 擋掉。
-# =========================================================
-
-# 是否在 forward 啟用 Context Refine
-# Context Refine = Coordinate Attention + Zero-Init Mini-ASPP
 cfg.MODEL.USE_CONTEXT_REFINE = False
 
-# 是否訓練 Context Refine 的參數
 cfg.MODEL.TRAIN_CONTEXT_REFINE = False
 
-# 是否在 forward 啟用 Edge-Guided Residual Gating
 cfg.MODEL.USE_EDGE_GATE = False
 
-# 是否訓練 Edge Gate 的 alpha
 cfg.MODEL.TRAIN_EDGE_GATE = False
 
-# Edge Gate 的 alpha 初始值
-# 0.0 代表一開始是 identity，不會破壞 baseline：
-# x * (1 + 0 * edge) = x
 cfg.MODEL.EDGE_ALPHA = 0.0
 
-# 是否在 Bias Rectification 後套 ReLU
-# 建議 False，對齊原本穩定版：
-# S_rect = S_raw - lambda * B
 cfg.MODEL.USE_RELU_RECT = False
 
-# Bias Rectification 強度
 cfg.MODEL.BIAS_LAMBDA = 1.0
 
-# Coordinate Attention reduction ratio
 cfg.MODEL.CA_REDUCTION = 32
 
-# Mini-ASPP dilation rates
 cfg.MODEL.ASPP_DILATIONS = [1, 2, 3]
 
 cfg.TRAIN = edict()

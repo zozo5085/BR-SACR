@@ -7,9 +7,6 @@ DATASET:
   CROP_SIZE: [512, 512]
   CAT_MAX_RATIO: 0.75
   IMG_NORM_CFG:
-#    MEAN: [123.675, 116.28, 103.53]
-#    STD: [58.395, 57.12, 57.375]
-#    RGB: True
     MEAN: [ 122.771, 116.746, 104.094 ]
     STD: [ 68.501, 66.632, 70.323 ]
     RGB: True

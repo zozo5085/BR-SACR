@@ -16,7 +16,7 @@ pip install -r requirements.txt
 
 # Data Preparation
 
-Please organize your datasets, such as PASCAL VOC, Cityscapes, ADE20K, or COCO-Stuff, under your local dataset directory.
+Please organize the datasets used in our paper, including PASCAL VOC, PASCAL Context, ADE20K, and Cityscapes, under your local dataset directory.
 
 
 ```text
@@ -49,13 +49,6 @@ Please organize your datasets, such as PASCAL VOC, Cityscapes, ADE20K, or COCO-S
 │   │   ├── leftImg8bit
 │   │   │   ├── train
 │   │   │   ├── val
-│   ├── coco_stuff164k
-│   │   ├── images
-│   │   │   ├── train2017
-│   │   │   ├── val2017
-│   │   ├── annotations
-│   │   │   ├── train2017
-│   │   │   ├── val2017
 ```
 
 You can also modify the dataset paths in the config files under config/.
@@ -65,7 +58,7 @@ For example, in config/voc_train_ori_cfg.yaml, set:
 ```bash
 text/voc_ViT16_clip_text.pth
 Available class sets include:
-voc, context, ade, city, stuff
+voc, context, ade, city
 ```
 ```YAML
 DATASET:

@@ -91,3 +91,21 @@ if needed, set the checkpoint path in the corresponding config file:
 LOAD_PATH: 'path/to/bestweight.pth'
 ```
 
+## Results
+
+| Method | VOC | Context | ADE20K | Cityscapes |
+|---|---:|---:|---:|---:|
+| BR-SACR | 84.0 | 36.2 | 18.4 | 37.0 |
+
+All numbers are reported in mIoU (%).
+
+## Training BR-SACR
+
+Train with the default config:
+
+```bash
+python tools/train.py --cfg config/cityscapes_train_ori_cfg.yaml --exp_name city_full
+
+## Notes
+
+This repository mainly reports results on PASCAL VOC, PASCAL Context, ADE20K, and Cityscapes. COCO-Stuff related configs, if present, are kept only for future extension and are not used in the reported paper results.

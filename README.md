@@ -88,7 +88,7 @@ LOAD_PATH: 'path/to/bestweight.pth'
 
 | Method | VOC | Context | ADE20K | Cityscapes |
 |---|---:|---:|---:|---:|
-| BR-SACR | 84.0 | 36.2 | 18.4 | 37.0 |
+| BR-SACR | [84.0](https://drive.google.com/file/d/12Mx_N5Tu-treUShKL_Q9tYUZeybqOSAH/view?usp=sharing) | 36.2 | 18.4 | 37.0 |
 
 All numbers are reported in mIoU (%).
 
